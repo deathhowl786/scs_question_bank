@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCQ Test</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #f4f4f4;
+            --text-color: black;
+            --card-bg: white;
+            --selected-bg: #d1e7fd;
+            --correct-bg: #90ee90;
+            --wrong-bg: #ffcccb;
+            --btn-bg: #4CAF50;
+            --btn-text: white;
+        }
+        
+        .dark-theme {
+            --bg-color: #121212;
+            --text-color: white;
+            --card-bg: #1e1e1e;
+            --selected-bg: #3a3a3a;
+            --correct-bg: #2e7d32;
+            --wrong-bg: #d32f2f;
+            --btn-bg: #388e3c;
+            --btn-text: white;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            text-align: center;
+        }
+        .container { max-width: 600px; margin: auto; }
+        .card {
+            background: var(--card-bg);
+            padding: 20px;
+            margin: 10px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            text-align: left;
+        }
+        .options label {
+            display: block;
+            padding: 8px;
+            cursor: pointer;
+            border-radius: 5px;
+            background: var(--selected-bg);
+            margin: 5px 0;
+        }
+        .selected { background-color: var(--selected-bg); }
+        .correct { background-color: var(--correct-bg); }
+        .wrong { background-color: var(--wrong-bg); }
+        button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            background: var(--btn-bg);
+            color: var(--btn-text);
+        }
+        #submit-btn, #restart-btn { display: none; }
+    </style>
+</head>
+<body>
+    <button onclick="toggleTheme()">Toggle Theme</button>
+    <div class="container">
+        <h1>MCQ Test</h1>
+        <input type="number" id="numPerTopic" min="1" placeholder="Enter number of questions per topic">
+        <button onclick="startTest()">Start Test</button>
+        <p id="loading" style="color: red;"></p>
+        <div id="question-container"></div>
+        <button id="submit-btn" onclick="submitTest()">Submit Test</button>
+        <button id="restart-btn" onclick="restartTest()">Restart</button>
+        <h2 id="result"></h2>
+    </div>
+
+    <script>
+let allQuestions = {};
+let selectedQuestions = [];
+let userAnswers = {};
+let dataLoaded = false;
+
+async function fetchExcelData() {
+    document.getElementById("loading").innerText = "Loading questions...";
+    const url = 'https://raw.githubusercontent.com/deathhowl786/scs_question_bank/main/question_bank.xlsx';
+
+    try {
+        const response = await fetch(url);
+        const arrayBuffer = await response.arrayBuffer();
+        const workbook = XLSX.read(arrayBuffer, { type: "array" });
+
+        allQuestions = {};
+        workbook.SheetNames.forEach(sheetName => {
+            const sheet = workbook.Sheets[sheetName];
+            const data = XLSX.utils.sheet_to_json(sheet);
+
+            data.forEach(row => {
+                if (!allQuestions[sheetName]) {
+                    allQuestions[sheetName] = [];
+                }
+                allQuestions[sheetName].push({
+                    q: row.Question,
+                    options: [row.A, row.B, row.C, row.D],
+                    correctOption: { A: 0, B: 1, C: 2, D: 3 }[row.Answer]
+                });
+            });
+        });
+
+        dataLoaded = true;
+        document.getElementById("loading").innerText = "";
+    } catch (error) {
+        document.getElementById("loading").innerText = "Error loading questions!";
+        console.error("Error fetching or parsing the Excel file:", error);
+    }
+}
+
+function getRandomQuestions(numPerTopic) {
+    selectedQuestions = [];
+    userAnswers = {};
+    
+    let sheets = Object.keys(allQuestions);
+    let totalSheets = sheets.length;
+    
+    for (let i = 0; i < numPerTopic; i++) {
+        let randomSheet = sheets[Math.floor(Math.random() * totalSheets)];
+        let topicQuestions = allQuestions[randomSheet];
+        
+        if (topicQuestions && topicQuestions.length > 0) {
+            let randomQuestion = topicQuestions[Math.floor(Math.random() * topicQuestions.length)];
+            selectedQuestions.push(randomQuestion);
+        }
+    }
+}
+
+function startTest() {
+    if (!dataLoaded) {
+        alert("Questions are still loading. Please wait.");
+        return;
+    }
+
+    const numPerTopic = parseInt(document.getElementById('numPerTopic').value);
+    if (isNaN(numPerTopic) || numPerTopic <= 0) {
+        alert("Please enter a valid number.");
+        return;
+    }
+
+    getRandomQuestions(numPerTopic);
+
+    if (selectedQuestions.length === 0) {
+        alert("Not enough questions available.");
+        return;
+    }
+
+    displayQuestions();
+    document.getElementById('submit-btn').style.display = 'inline-block';
+}
+
+        function displayQuestions() {
+            const container = document.getElementById('question-container');
+            container.innerHTML = '';
+            selectedQuestions.forEach((q, index) => {
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.innerHTML = `<h3>${index + 1}. ${q.q}</h3>
+                    <div class="options">
+                        ${q.options.map((opt, i) => `
+                            <label onclick="selectAnswer(${index}, ${i}, this)">
+                                <input type="radio" name="q${index}" value="${i}">${opt}
+                            </label>`).join('')}
+                    </div>`;
+                container.appendChild(card);
+            });
+        }
+
+        function selectAnswer(qIndex, selectedIndex, label) {
+            userAnswers[qIndex] = selectedIndex;
+            label.parentElement.querySelectorAll('label').forEach(lbl => lbl.classList.remove('selected'));
+            label.classList.add('selected');
+        }
+
+        function submitTest() {
+            let score = 0;
+            selectedQuestions.forEach((q, index) => {
+                const userChoice = userAnswers[index];
+                const correctChoice = q.correctOption;
+                if (userChoice === correctChoice) score++;
+            });
+            document.getElementById('result').innerText = `Your Score: ${score} / ${selectedQuestions.length}`;
+            document.getElementById('submit-btn').style.display = 'none';
+            document.getElementById('restart-btn').style.display = 'inline-block';
+        }
+        function restartTest() {
+            document.getElementById('result').innerText = '';
+            document.getElementById('submit-btn').style.display = 'inline-block';
+            document.getElementById('restart-btn').style.display = 'none';
+            startTest();
+        }
+
+        function toggleTheme() {
+            document.body.classList.toggle('dark-theme');
+        }
+
+        document.addEventListener("DOMContentLoaded", fetchExcelData);
+    </script>
+</body>
+</html>
