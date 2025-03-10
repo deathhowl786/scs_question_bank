@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCQ Quiz</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #1e1e2f;
+            --text-color: #ffffff;
+            --card-bg: #292940;
+            --btn-bg: #3a3a5a;
+            --btn-hover: #57577a;
+        }
+        
+        .light-theme {
+            --bg-color: #f5f5f5;
+            --text-color: #333;
+            --card-bg: #ffffff;
+            --btn-bg: #dddddd;
+            --btn-hover: #bbbbbb;
+        }
+        
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            text-align: center;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 700px;
+            margin: auto;
+            padding: 20px;
+            flex: 1;
+        }
+        .card {
+            background: var(--card-bg);
+            padding: 15px;
+            margin: 12px 0;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(255, 255, 255, 0.1);
+            text-align: left;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .card:hover {
+            transform: scale(1.02);
+        }
+        .options {
+            padding-top: 10px;
+        }
+        .options button {
+            display: block;
+            width: 100%;
+            margin: 5px 0;
+            padding: 12px;
+            border: 1px solid #ffffff33;
+            cursor: pointer;
+            border-radius: 5px;
+            font-size: 16px;
+            background: var(--btn-bg);
+            color: var(--text-color);
+            transition: 0.3s;
+        }
+        .options button:hover {
+            background-color: var(--btn-hover);
+        }
+        .options button.correct { background-color: #4CAF50; color: white; }
+        .options button.wrong { background-color: #ff4d4d; color: white; }
+        .controls {
+            position: static;
+            top: 15px;
+            right: 15px;
+            display: flex;
+            gap: 10px;
+        }
+        .controls button, select {
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            background: #007bff;
+            color: white;
+        }
+        .theme-toggle {
+            background: #ff9800;
+        }
+        @media (max-width: 600px) {
+            .container { padding: 10px; }
+            .options button { font-size: 14px; padding: 10px; }
+            .controls button, select { font-size: 14px; padding: 8px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="controls">
+        <button onclick="window.location.href='test.html'">Start Test</button>
+        <select id="sheetFilter" onchange="changeSheet()">
+            <option value="">Loading Sheets...</option>
+        </select>
+        <button class="theme-toggle" onclick="toggleTheme()">Toggle Theme</button>
+    </div>
+    <div class="container">
+        <h1>MCQ Quiz</h1>
+        <div id="question-container"></div>
+    </div>
+    <script>
+        let allSheetsData = {};
+        let currentSheet = "";
+        let questions = [];
+
+        async function fetchExcelData() {
+            const url = 'https://raw.githubusercontent.com/deathhowl786/scs_question_bank/main/question_bank.xlsx';
+            try {
+                const response = await fetch(url);
+                const arrayBuffer = await response.arrayBuffer();
+                const workbook = XLSX.read(arrayBuffer, { type: "array" });
+                const sheetSelect = document.getElementById('sheetFilter');
+                sheetSelect.innerHTML = workbook.SheetNames.map(sheet => `<option value="${sheet}">${sheet}</option>`).join('');
+                workbook.SheetNames.forEach(sheetName => {
+                    const sheet = workbook.Sheets[sheetName];
+                    const data = XLSX.utils.sheet_to_json(sheet);
+                    allSheetsData[sheetName] = data.map(row => ({
+                        q: row.Question,
+                        options: [row.A, row.B, row.C, row.D],
+                        correctOption: { A: 0, B: 1, C: 2, D: 3 }[row.Answer]
+                    }));
+                });
+                currentSheet = workbook.SheetNames[0];
+                loadQuestions(currentSheet);
+            } catch (error) {
+                console.error("Error fetching or parsing the Excel file:", error);
+            }
+        }
+
+        function loadQuestions(sheetName) {
+            currentSheet = sheetName;
+            questions = allSheetsData[sheetName] || [];
+            displayQuestions();
+        }
+
+        function displayQuestions() {
+            const container = document.getElementById('question-container');
+            container.innerHTML = '';
+            questions.forEach((q, index) => {
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.innerHTML = `<h3>${q.q}</h3>
+                    <div class="options" id="options-${index}">
+                        ${q.options.map((opt, i) => `<button onclick="checkAnswer(this, ${i}, ${q.correctOption}, ${index})">${opt}</button>`).join('')}
+                    </div>`;
+                container.appendChild(card);
+            });
+        }
+
+        function checkAnswer(button, selectedIndex, correctIndex, index) {
+            button.parentElement.querySelectorAll('button').forEach(btn => btn.classList.remove('correct', 'wrong'));
+            button.classList.add(selectedIndex === correctIndex ? 'correct' : 'wrong');
+        }
+
+        function changeSheet() {
+            const selectedSheet = document.getElementById('sheetFilter').value;
+            loadQuestions(selectedSheet);
+        }
+
+
+
+        function toggleTheme() {
+            document.body.classList.toggle('light-theme');
+        }
+
+
+        document.addEventListener("DOMContentLoaded", fetchExcelData);
+    </script>
+</body>
+</html>
