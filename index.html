@@ -106,6 +106,7 @@
             <option value="">Loading Sheets...</option>
         </select>
         <button class="theme-toggle" onclick="toggleTheme()">Toggle Theme</button>
+        <button onclick="toggleAnswers()">Toggle Answers</button>
     </div>
     <div class="container">
         <h1>MCQ Quiz</h1>
@@ -170,11 +171,24 @@
             loadQuestions(selectedSheet);
         }
 
-
-
         function toggleTheme() {
             document.body.classList.toggle('light-theme');
         }
+
+        function toggleAnswers() {
+    document.querySelectorAll('.options button').forEach((button, index) => {
+        const question = questions[Math.floor(index / 4)]; // Assuming 4 options per question
+        if (!question) return;
+        const correctIndex = question.correctOption;
+        
+        if (button.classList.contains('show-answer')) {
+            button.classList.remove('correct', 'show-answer');
+        } else if (index % 4 === correctIndex) {
+            button.classList.add('correct', 'show-answer');
+        }
+    });
+}
+
 
 
         document.addEventListener("DOMContentLoaded", fetchExcelData);
