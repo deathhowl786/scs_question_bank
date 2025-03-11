@@ -74,9 +74,9 @@
         <button onclick="startTest()">Start Test</button>
         <p id="loading" style="color: red;"></p>
         <div id="question-container"></div>
+        <h2 id="result"></h2>
         <button id="submit-btn" onclick="submitTest()">Submit Test</button>
         <button id="restart-btn" onclick="restartTest()">Restart</button>
-        <h2 id="result"></h2>
     </div>
 
     <script>
@@ -122,17 +122,26 @@ async function fetchExcelData() {
 function getRandomQuestions(numPerTopic) {
     selectedQuestions = [];
     userAnswers = {};
-    
+
     let sheets = Object.keys(allQuestions);
-    let totalSheets = sheets.length;
-    
-    for (let i = 0; i < numPerTopic; i++) {
-        let randomSheet = sheets[Math.floor(Math.random() * totalSheets)];
-        let topicQuestions = allQuestions[randomSheet];
-        
-        if (topicQuestions && topicQuestions.length > 0) {
-            let randomQuestion = topicQuestions[Math.floor(Math.random() * topicQuestions.length)];
-            selectedQuestions.push(randomQuestion);
+    let allPool = [];
+
+    // Collect all questions from all topics
+    sheets.forEach(sheet => {
+        allPool = allPool.concat(allQuestions[sheet]);
+    });
+
+    if (numPerTopic > allPool.length) {
+        alert("Not enough unique questions available!");
+        return;
+    }
+
+    let chosenIndices = new Set();
+    while (chosenIndices.size < numPerTopic) {
+        let randomIndex = Math.floor(Math.random() * allPool.length);
+        if (!chosenIndices.has(randomIndex)) {
+            chosenIndices.add(randomIndex);
+            selectedQuestions.push(allPool[randomIndex]);
         }
     }
 }
@@ -160,52 +169,69 @@ function startTest() {
     document.getElementById('submit-btn').style.display = 'inline-block';
 }
 
-        function displayQuestions() {
-            const container = document.getElementById('question-container');
-            container.innerHTML = '';
-            selectedQuestions.forEach((q, index) => {
-                const card = document.createElement('div');
-                card.className = 'card';
-                card.innerHTML = `<h3>${index + 1}. ${q.q}</h3>
-                    <div class="options">
-                        ${q.options.map((opt, i) => `
-                            <label onclick="selectAnswer(${index}, ${i}, this)">
-                                <input type="radio" name="q${index}" value="${i}">${opt}
-                            </label>`).join('')}
-                    </div>`;
-                container.appendChild(card);
-            });
-        }
+function displayQuestions() {
+    const container = document.getElementById('question-container');
+    container.innerHTML = '';
+    selectedQuestions.forEach((q, index) => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `<h3>${index + 1}. ${q.q}</h3>
+            <div class="options">
+                ${q.options.map((opt, i) => `
+                    <label onclick="selectAnswer(${index}, ${i}, this)">
+                        <input type="radio" name="q${index}" value="${i}">${opt}
+                    </label>`).join('')}
+            </div>`;
+        container.appendChild(card);
+    });
+}
 
-        function selectAnswer(qIndex, selectedIndex, label) {
-            userAnswers[qIndex] = selectedIndex;
-            label.parentElement.querySelectorAll('label').forEach(lbl => lbl.classList.remove('selected'));
-            label.classList.add('selected');
-        }
+function selectAnswer(qIndex, selectedIndex, label) {
+    userAnswers[qIndex] = selectedIndex;
+    let labels = label.parentElement.querySelectorAll('label');
+    labels.forEach(lbl => lbl.classList.remove('selected'));
+    label.classList.add('selected');
+}
 
-        function submitTest() {
-            let score = 0;
-            selectedQuestions.forEach((q, index) => {
-                const userChoice = userAnswers[index];
-                const correctChoice = q.correctOption;
-                if (userChoice === correctChoice) score++;
-            });
-            document.getElementById('result').innerText = `Your Score: ${score} / ${selectedQuestions.length}`;
-            document.getElementById('submit-btn').style.display = 'none';
-            document.getElementById('restart-btn').style.display = 'inline-block';
-        }
-        function restartTest() {
-            document.getElementById('result').innerText = '';
-            document.getElementById('submit-btn').style.display = 'inline-block';
-            document.getElementById('restart-btn').style.display = 'none';
-            startTest();
-        }
+function submitTest() {
+    selectedQuestions.forEach((q, index) => {
+        const userChoice = userAnswers[index];
+        const correctChoice = q.correctOption;
+        const options = document.querySelectorAll(`[name="q${index}"]`);
 
-        function toggleTheme() {
-            document.body.classList.toggle('dark-theme');
-        }
+        options.forEach((opt, i) => {
+            let label = opt.parentElement;
+            opt.disabled = true; // Disable selection after submission
 
-        document.addEventListener("DOMContentLoaded", fetchExcelData);
+            if (i === correctChoice) {
+                label.style.backgroundColor = "lightgreen"; // Highlight correct answer in green
+            }
+            if (userChoice === i && userChoice !== correctChoice) {
+                label.style.backgroundColor = "salmon"; // Highlight wrong answer in red
+            }
+        });
+    });
+
+    let score = Object.values(userAnswers).filter((ans, index) => ans === selectedQuestions[index].correctOption).length;
+    document.getElementById('result').innerText = `Your Score: ${score} / ${selectedQuestions.length}`;
+    document.getElementById('submit-btn').style.display = 'none';
+    document.getElementById('restart-btn').style.display = 'inline-block';
+}
+
+
+function restartTest() {
+    document.getElementById('result').innerText = '';
+    document.getElementById('submit-btn').style.display = 'inline-block';
+    document.getElementById('restart-btn').style.display = 'none';
+    startTest();
+}
+
+function toggleTheme() {
+    document.body.classList.toggle('dark-theme');
+}
+
+document.addEventListener("DOMContentLoaded", fetchExcelData);
+
     </script>
 </body>
 </html>
